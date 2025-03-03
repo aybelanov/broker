@@ -3,6 +3,7 @@ use r2d2::Pool;
 use r2d2_sqlite::SqliteConnectionManager;
 
 pub mod sqlite;
+pub mod rep;
 
 const DB_FILE_PATH: &str = "broker.db";
 

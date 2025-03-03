@@ -1,5 +1,7 @@
+mod app;
 mod config;
 mod db;
+mod models;
 
 use anyhow::Result;
 use log::info;
