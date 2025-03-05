@@ -3,8 +3,13 @@ use  super::DB_POOL;
 use anyhow::Result;
 use rusqlite::{params, TransactionBehavior};
 
-
+/*
+  Если сервер будет записывать в SQLite, убедитесь, что используется режим WAL (PRAGMA journal_mode=WAL),
+  чтобы избежать блокировок при одновременных операциях.
+*/
 const INIT_DB_SCRIPT: &str = r#"
+    PRAGMA journal_mode=WAL
+
     CREATE TABLE IF NOT EXISTS settings(
         key TEXT NOT NULL UNIQUE CONSTRAINT PK_settings PRIMARY KEY,
         value TEXT NOT NULL

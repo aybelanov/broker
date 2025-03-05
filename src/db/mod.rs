@@ -4,6 +4,7 @@ use r2d2_sqlite::SqliteConnectionManager;
 
 pub mod sqlite;
 pub mod rep;
+pub mod rep_async;
 
 const DB_FILE_PATH: &str = "broker.db";
 
