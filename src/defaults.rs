@@ -1,4 +1,5 @@
-pub const  DB_FILE_PATH: &str = "broker.data";
+pub const CFG_FILE_PATH: &str = "config.json";
+pub const DB_FILE_PATH: &str = "broker.data";
 
 // default setting key's section
 pub const DATA_FLOW_RECONNECT_DELAY_KEY: &str = "data_flow_reconnect_delay";

@@ -3,5 +3,6 @@
     "system_name": "Broker#1",
     "client_id": "Remote.Broker",
     "secret": "Secret123!",
-    "hub_endpoint": "https://localhost:5001"
+    "hub_endpoint": "https://localhost:5001",
+    "listen_port": 5000
 }

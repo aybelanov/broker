@@ -1,12 +1,12 @@
 use actix_web::{web, App, HttpServer};
 use crate::config;
 use crate::data::db;
-use crate::defaults::DB_FILE_PATH;
+use crate::defaults::{CFG_FILE_PATH, DB_FILE_PATH};
 use crate::endpoints::receive_data;
 
 pub async fn start_app() -> std::io::Result<()>  {
     // 1. initializes app configuration
-    let cfg = config::get_config();
+    let cfg = config::get_config(CFG_FILE_PATH);
     log::info!("App configuration has been read successfully.");
 
     if !cfg.enabled {

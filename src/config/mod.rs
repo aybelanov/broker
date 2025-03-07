@@ -3,7 +3,7 @@ use serde::Deserialize;
 use std::panic;
 use thiserror::Error;
 
-mod validation;
+pub mod validation;
 
 #[derive(Error, Debug)]
 pub enum ConfigError {
@@ -22,21 +22,21 @@ pub struct Config {
     pub client_id: String,
     pub secret: String,
     pub hub_endpoint: String,
+    pub listen_port: u16
 }
 
 static CONFIG: OnceCell<Config> = OnceCell::new();
 
-pub fn get_config() -> &'static Config {
+pub fn get_config(cfg_file_path:&str) -> &'static Config {
     CONFIG.get_or_init(|| {
-        load_config().unwrap_or_else(|e| {
+        load_config(cfg_file_path).unwrap_or_else(|e| {
             panic!("Configuration error: {}", e);
         })
     })
 }
 
-fn load_config() -> Result<Config, ConfigError> {
-    let config_path = "config.json";
-    let config_data = std::fs::read_to_string(config_path)?;
+fn load_config(cfg_file_path:&str) -> Result<Config, ConfigError> {
+    let config_data = std::fs::read_to_string(cfg_file_path)?;
     let config: Config = serde_json::from_str(&config_data)?;
     validation::validate(&config)?;
     Ok(config)
