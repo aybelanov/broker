@@ -4,7 +4,6 @@ use std::panic;
 use thiserror::Error;
 
 mod validation;
-pub mod settings;
 
 #[derive(Error, Debug)]
 pub enum ConfigError {

@@ -10,9 +10,15 @@ pub async fn get_setting_by_key(pool:&Pool<Sqlite>, key:&str)
          "SELECT value FROM settings WHERE key = ?"
      ).bind(key);
      
-     let row = query.fetch_one(pool).await?;
-     let val = row.get("value");
+     let row = query.fetch_optional(pool).await?;
 
+     let val = match row {
+         Some(row) => Some(row.get("value")),
+         None => None,
+     };
+
+     // let val = row.map(|row| row.get("value"));
+     
      Ok(val)
 }
 
@@ -45,7 +51,7 @@ pub async fn get_all_sources(pool:&Pool<Sqlite>)
     ->Result<Vec<Source>, Box<dyn Error>> {
 
     let query = sqlx::query(
-        r#"SELECT src_id, cfg, "on" FROM sources"#
+        r#"SELECT src_id, cfg, active FROM sources"#
     );
 
     let rows = query
@@ -57,7 +63,7 @@ pub async fn get_all_sources(pool:&Pool<Sqlite>)
         .map(|row| Source {
             src_id: row.get("src_id"),
             cfg: row.get("cfg"),       
-            on: row.get("on"), 
+            active: row.get("active"), 
         })
         .collect();
     
@@ -68,14 +74,14 @@ pub async fn get_all_sources(pool:&Pool<Sqlite>)
 pub async fn get_source_by_name(pool:&Pool<Sqlite>, name: &str)-> Result<Source, Box<dyn Error>>{
     
     let query = sqlx::query(
-        r#"SELECT src_id, cfg, "on" FROM source WHERE name = ?"#
+        r#"SELECT src_id, cfg, active FROM sources WHERE src_id = ?"#
     ).bind(name);
 
     let row = query.fetch_one(pool).await?;
     let source = Source {
         src_id: row.get("src_id"),
         cfg: row.get("cfg"),
-        on: row.get("on"),
+        active: row.get("active"),
     };
     
     Ok(source)
@@ -87,11 +93,11 @@ pub async fn add_source(pool:&Pool<Sqlite>, source: &Source)->Result<(), Box<dyn
     let mut tx = pool.begin().await?;
     
     let query = sqlx::query(
-        r#"INSERT INTO source (src_id, cfg, "on") VALUES (?, ?, ?)"#
+        r#"INSERT INTO sources (src_id, cfg, active) VALUES (?, ?, ?)"#
     )
         .bind(&source.src_id)
         .bind(&source.cfg)
-        .bind(source.on);
+        .bind(source.active);
 
     query.execute(&mut *tx).await?;
     tx.commit().await?;
@@ -103,10 +109,10 @@ pub async fn add_source(pool:&Pool<Sqlite>, source: &Source)->Result<(), Box<dyn
 pub async  fn update_source(pool:&Pool<Sqlite>, source: Source)->Result<(), Box<dyn Error>>{
     
     let query = sqlx::query(
-        r#"UPDATE source SET cfg = ?, "on" = ? WHERE src_id = ?"#
+        r#"UPDATE sources SET cfg = ?, active = ? WHERE src_id = ?"#
     )
         .bind(&source.cfg)
-        .bind(source.on)
+        .bind(source.active)
         .bind(&source.src_id);
     
     query.execute(pool).await?;
@@ -118,7 +124,7 @@ pub async  fn update_source(pool:&Pool<Sqlite>, source: Source)->Result<(), Box<
 pub async fn delete_source(pool: &Pool<Sqlite>, src_id: &str)-> Result<(), Box<dyn Error>>{
     
     let query = sqlx::query(
-        r#"DELETE FROM source WHERE src_id = ?"#
+        r#"DELETE FROM sources WHERE src_id = ?"#
     ).bind(src_id);
     
     query.execute(pool).await?;
@@ -205,6 +211,7 @@ pub async fn bulk_add_data(pool: &Pool<Sqlite>, records: &Vec<Record>)
         .map(|_| "(?, ?, ?)") 
         .collect::<Vec<_>>()
         .join(", ");
+    
     let query_str = format!(
         r#"INSERT INTO records (src_id, data, sent) VALUES {} RETURNING id"#,
         placeholders
@@ -296,13 +303,23 @@ pub async fn delete_sent_data(pool: &Pool<Sqlite>)-> Result<(), Box<dyn Error>> 
 mod tests {
     use super::*;
     use anyhow::Result;
-    use crate::db::app_db::init_db;
+    use crate::data::db::init_db_in_memory;
 
     async fn setup_pool() -> Result<Pool<Sqlite>, Box<dyn Error>> {
-        let pool = init_db("sqlite::memory:").await?;
+        let pool = init_db_in_memory().await?;
         Ok(pool)
     }
 
+    #[tokio::test]
+    async fn test_init_db() -> Result<(), Box<dyn Error>> {
+        let pool = setup_pool().await?;
+        let row: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM sources")
+            .fetch_one(&pool)
+            .await?;
+        assert_eq!(row.0, 0); // Таблица существует, но пуста
+        Ok(())
+    }
+    
     // Юнит-тесты для базовой функциональности
     #[tokio::test]
     async fn test_add_source() -> Result<(), Box<dyn Error>> {
@@ -310,23 +327,40 @@ mod tests {
         let source = Source {
             src_id: "src1".to_string(),
             cfg: Some("cfg1".to_string()),
-            on: true,
+            active: true,
         };
         add_source(&pool, &source).await?;
         let result = get_source_by_name(&pool, "src1").await?;
         assert_eq!(result, source);
+        
         Ok(())
     }
 
     #[tokio::test]
     async fn test_get_last_data() -> Result<(), Box<dyn Error>> {
         let pool = setup_pool().await?;
-        sqlx::query(r#"INSERT INTO records (src_id, data, sent) VALUES ('src1', X'0102', 0)"#)
+
+        let source = Source {
+            src_id: "src1".to_string(),
+            cfg: Some("cfg1".to_string()),
+            active: true,
+        };
+        add_source(&pool, &source).await?;
+        
+        sqlx::query(
+        r#"
+                INSERT INTO records (src_id, data, sent)
+                VALUES ('src1', X'0102', 0)
+             "#
+        )
             .execute(&pool)
             .await?;
+        
         let result = get_last_data(&pool, &1).await?;
+        
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].src_id, "src1");
+        
         Ok(())
     }
 }
