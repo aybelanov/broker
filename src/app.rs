@@ -1,8 +1,10 @@
 use actix_web::{web, App, HttpServer};
+use actix_web::middleware::from_fn;
 use crate::config;
+use crate::api::endpoints;
 use crate::data::db;
-use crate::defaults::{CFG_FILE_PATH, DB_FILE_PATH};
-use crate::endpoints::receive_data;
+use crate::common::defaults::{CFG_FILE_PATH, DB_FILE_PATH};
+use crate::api::filters::only_private_ip;
 
 pub async fn start_app() -> std::io::Result<()>  {
     // 1. initializes app configuration
@@ -22,10 +24,11 @@ pub async fn start_app() -> std::io::Result<()>  {
     HttpServer::new(move || {
         App::new()
             .app_data(web::Data::new(pool.clone()))
-            .service(receive_data)
+            .wrap(from_fn(only_private_ip))
+            .service(endpoints::receive_data)
         //.route("/settings", web::get().to(get_settings))
     })
-        .bind(("127.0.0.1", 5000))?
+        .bind(("0.0.0.0", 5000))?
         .run()
         .await
 }

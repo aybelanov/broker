@@ -3,6 +3,7 @@ use sqlx::{Pool, Sqlite};
 use std::collections::HashMap;
 use std::error::Error;
 use anyhow::Result;
+use broker::common::defaults;
 use broker::data::db::init_db_in_memory;
 use broker::models::{Record, Source};
 
@@ -77,9 +78,9 @@ async fn test_get_source_by_name() -> Result<(), Box<dyn Error>> {
     sqlx::query(r#"INSERT INTO sources (src_id, cfg, active) VALUES ('src1', 'cfg1', 1)"#)
         .execute(&pool)
         .await?;
-    let result = get_source_by_name(&pool, "src1").await?;
+    let result = get_source_by_id(&pool, "src1").await?;
     let expected = Source { src_id: "src1".to_string(), cfg: Some("cfg1".to_string()), active: true };
-    assert_eq!(result, expected);
+    assert_eq!(result, Some(expected));
     Ok(())
 }
 
@@ -95,8 +96,8 @@ async fn test_update_source() -> Result<(), Box<dyn Error>> {
         active: true,
     };
     update_source(&pool, updated_source.clone()).await?;
-    let result = get_source_by_name(&pool, "src1").await?;
-    assert_eq!(result, updated_source);
+    let result = get_source_by_id(&pool, "src1").await?;
+    assert_eq!(result, Some(updated_source));
     Ok(())
 }
 
@@ -107,8 +108,8 @@ async fn test_delete_source() -> Result<(), Box<dyn Error>> {
         .execute(&pool)
         .await?;
     delete_source(&pool, "src1").await?;
-    let result = get_source_by_name(&pool, "src1").await;
-    assert!(result.is_err());
+    let result= get_source_by_id(&pool, "src1").await;
+    assert!(result?.is_none());
     Ok(())
 }
 
@@ -237,7 +238,7 @@ async fn test_delete_data() -> Result<(), Box<dyn Error>> {
 #[tokio::test]
 async fn test_delete_sent_data() -> Result<(), Box<dyn Error>> {
     let pool = setup_pool().await?;
-
+    
     sqlx::query(
         r#"
             INSERT INTO sources (src_id, cfg, active) 

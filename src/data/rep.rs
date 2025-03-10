@@ -71,17 +71,22 @@ pub async fn get_all_sources(pool:&Pool<Sqlite>)
 }
 
 /// Gets a data source by its name (as src_id)
-pub async fn get_source_by_name(pool:&Pool<Sqlite>, name: &str)-> Result<Source, Box<dyn Error>>{
+pub async fn get_source_by_id(pool:&Pool<Sqlite>, name: &str) -> Result<Option<Source>, Box<dyn Error>>{
     
     let query = sqlx::query(
         r#"SELECT src_id, cfg, active FROM sources WHERE src_id = ?"#
     ).bind(name);
 
-    let row = query.fetch_one(pool).await?;
-    let source = Source {
-        src_id: row.get("src_id"),
-        cfg: row.get("cfg"),
-        active: row.get("active"),
+    let row = query.fetch_optional(pool).await?;
+    
+    let source = match row 
+    {
+        Some(row)=> Some(Source {
+           src_id: row.get("src_id"),
+           cfg: row.get("cfg"),
+           active: row.get("active"),
+        }), 
+        None => None
     };
     
     Ok(source)
@@ -320,7 +325,6 @@ mod tests {
         Ok(())
     }
     
-    // Юнит-тесты для базовой функциональности
     #[tokio::test]
     async fn test_add_source() -> Result<(), Box<dyn Error>> {
         let pool = setup_pool().await?;
@@ -330,8 +334,8 @@ mod tests {
             active: true,
         };
         add_source(&pool, &source).await?;
-        let result = get_source_by_name(&pool, "src1").await?;
-        assert_eq!(result, source);
+        let result = get_source_by_id(&pool, "src1").await?;
+        assert_eq!(result, Some(source));
         
         Ok(())
     }

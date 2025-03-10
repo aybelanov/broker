@@ -1,6 +1,6 @@
 use std::error::Error;
 use sqlx::{Pool, Sqlite};
-use crate::defaults;
+use crate::common::defaults::SETTING_VALUES;
 
 const INIT_DB_SCRIPT: &str = r#"
     CREATE TABLE IF NOT EXISTS settings(
@@ -25,18 +25,7 @@ const INIT_DB_SCRIPT: &str = r#"
     );
 "#;
 
-const SETTING_VALUES: [(&str, &str); 9] = [
-    (defaults::BROKER_CONFIGURATION_KEY, "{}"),
-    (defaults::CLEAR_DATA_DELAY_KEY, "3600"),
-    (defaults::DATA_FLOW_RECONNECT_DELAY_KEY, "10000"),
-    (defaults::DATA_SENDING_DELAY_KEY, "1000"),
-    (defaults::DESCRIPTION_KEY, "Embedded broker"),
-    (defaults::MAX_COUNT_DATA_ROWS_KEY, "1000000"),
-    (defaults::MODIFIED_TICKS_KEY, "0"),
-    (defaults::PACKET_SIZE_KEY, "1000"),
-    (defaults::VIDEO_SEGMENTS_EXPIRATION_KEY, "72"),
-];
-
+/// Initializes database in filesystem for persistent storing data from the data sources
 pub async fn init_db(db_file_path:&str)
     -> Result<Pool<Sqlite>, Box<dyn Error>> {
 
@@ -54,13 +43,14 @@ pub async fn init_db(db_file_path:&str)
     Ok(pool)
 }
 
-
+/// Initializes database in memory. It uses for testing
 pub async fn init_db_in_memory() -> Result<Pool<Sqlite>, Box<dyn Error>> {
     let pool = Pool::<Sqlite>::connect(":memory:").await?;
     init_query(&pool).await?;
     Ok(pool)
 }
 
+/// Initial query to create a database with default values
 async fn init_query(pool: &Pool<Sqlite>) -> Result<(), Box<dyn Error>> {
    
     sqlx::query("PRAGMA journal_mode=WAL;")
